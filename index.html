@@ -261,28 +261,16 @@ label {
             <div class="mode-selector">
                 <label>Summarization Mode</label>
                 <div class="tabs">
-                    <button class="tab-btn active" onclick="setMode('fast')">
+                    <button class="tab-btn active" onclick="setMode(event, 'fast')">
                         <i class="fa-solid fa-bolt"></i> Fast
                     </button>
-                    <button class="tab-btn" onclick="setMode('smart')">
-                        <i class="fa-solid fa-brain"></i> Smart
-                    </button>
-                    <button class="tab-btn" onclick="setMode('expert')">
-                        <i class="fa-solid fa-wand-magic-sparkles"></i> Expert
+                    <button class="tab-btn" onclick="setMode(event, 'smart')">
+                        <i class="fa-solid fa-brain"></i> Smart (Local AI)
                     </button>
                 </div>
                 <p id="mode-desc" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 10px;">
                     âš¡ Fast Mode finds the most important sentences instantly using math. No download required.
                 </p>
-            </div>
-
-            <div id="api-key-container" class="hidden" style="margin-bottom: 24px; text-align: left;">
-                <label for="api-key" style="font-size: 0.75rem;">Gemini API Key (Required for Expert Mode)</label>
-                <input type="password" id="api-key" placeholder="Paste key here..."
-                    style="width: 100%; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; color: var(--text); font-size: 1rem;">
-                <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">Get one at <a
-                        href="https://aistudio.google.com/" target="_blank"
-                        style="color: var(--primary);">aistudio.google.com</a></p>
             </div>
 
             <div class="drop-zone" id="drop-zone">
@@ -358,8 +346,6 @@ const detailedStatus = document.getElementById('detailed-status');
 const fileStats = document.getElementById('file-stats');
 const downloadBtn = document.getElementById('download-btn');
 const modeDesc = document.getElementById('mode-desc');
-const apiKeyContainer = document.getElementById('api-key-container');
-const apiKeyInput = document.getElementById('api-key');
 
 let selectedFile = null;
 let zip = null;
@@ -387,8 +373,6 @@ fileInput.addEventListener('change', (e) => {
     }
 });
 
-apiKeyInput.addEventListener('input', validateInputs);
-
 function handleFileSelection(file) {
     if (file.type !== 'application/pdf') {
         alert('Please upload a PDF file.');
@@ -400,28 +384,20 @@ function handleFileSelection(file) {
 }
 
 function validateInputs() {
-    if (currentMode === 'expert') {
-        processBtn.disabled = !(selectedFile && apiKeyInput.value.length > 20);
-    } else {
-        processBtn.disabled = !selectedFile;
-    }
+    processBtn.disabled = !selectedFile;
 }
 
-window.setMode = function (mode) {
+window.setMode = function (event, mode) {
     currentMode = mode;
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    // Use the event target to find correct button
+
     const target = event.currentTarget;
     if (target) target.classList.add('active');
 
-    apiKeyContainer.classList.toggle('hidden', mode !== 'expert');
-
     if (mode === 'fast') {
         modeDesc.innerHTML = "âš¡ Fast Mode finds the most important sentences instantly using math.";
-    } else if (mode === 'smart') {
-        modeDesc.innerHTML = "ðŸ§  Smart Mode downloads a small AI model (~60MB) for higher quality text.";
     } else {
-        modeDesc.innerHTML = "âœ¨ Expert Mode uses Gemini AI to create the deep 5-Method summary you love.";
+        modeDesc.innerHTML = "ðŸ§  Smart Mode downloads a small AI model (~60MB) for higher quality text.";
     }
     validateInputs();
 };
@@ -431,7 +407,6 @@ processBtn.addEventListener('click', startProcessing);
 async function startProcessing() {
     setupView.classList.add('hidden');
     statusView.classList.remove('hidden');
-    const apiKey = apiKeyInput.value.trim();
 
     try {
         // 1. Initial Logic
@@ -461,9 +436,7 @@ async function startProcessing() {
             updateStatus(`Condensing Section ${i + 1}/${lessons.length}`, progress, `Processing: ${lessons[i].title}...`);
 
             let summary = "";
-            if (currentMode === 'expert') {
-                summary = await generateExpertSummary(lessons[i].content, apiKey, lessons[i].title);
-            } else if (currentMode === 'smart') {
+            if (currentMode === 'smart') {
                 summary = await generateSmartSummary(lessons[i].content, lessons[i].title);
             } else {
                 summary = generateFastSummary(lessons[i].content, lessons[i].title);
@@ -504,7 +477,6 @@ async function extractTextFromPDF(file) {
 }
 
 function splitIntoLessons(text) {
-    // Regex looking for common header patterns
     const patterns = [
         /(?:Lesson|Chapter|Unit)\s*\d+[:\s\-\.]+[^\n]+/gi,
         /^\s*[0-9]+\.\s+[A-Z][a-z]+/gm,  // Match "1. Topic"
@@ -543,86 +515,83 @@ function splitIntoLessons(text) {
     return segments.map(s => ({ ...s, content: s.content.trim() }));
 }
 
-function generateFastSummary(text, title) {
-    const sentences = text.split(/[.!?]+\s+/).filter(s => s.length > 20);
-    if (sentences.length <= 5) return "# " + title + "\n\n" + text;
+// --- SUMMARIZATION LOGIC ---
 
+function calculateSentenceScores(text, sentences) {
     const words = text.toLowerCase().match(/\w+/g) || [];
     const freqs = {};
-    const stopWords = new Set(['the', 'and', 'is', 'a', 'in', 'it', 'to', 'of', 'that', 'this', 'with']);
+    const stopWords = new Set(['the', 'and', 'is', 'a', 'in', 'it', 'to', 'of', 'that', 'this', 'with', 'for', 'on', 'at', 'by', 'from', 'was', 'were', 'are']);
     words.forEach(w => { if (!stopWords.has(w)) freqs[w] = (freqs[w] || 0) + 1; });
 
-    const scored = sentences.map(s => {
+    return sentences.map(s => {
         const sWords = s.toLowerCase().match(/\w+/g) || [];
         let score = 0;
         sWords.forEach(w => score += (freqs[w] || 0));
         return { text: s.trim(), score: score / (sWords.length + 1) };
     }).sort((a, b) => b.score - a.score);
+}
 
-    const top = scored.slice(0, 6).map(s => "- " + s.text);
+function generateFastSummary(text, title) {
+    const sentences = text.split(/[.!?]+\s+/).filter(s => s.length > 20);
+    if (sentences.length <= 5) return "# " + title + "\n\n" + text;
+
+    const scores = calculateSentenceScores(text, sentences);
+    const top = scores.slice(0, 6).map(s => "- " + s.text);
 
     return `# ${title}
 ---
-## [FAST MODE SUMMARY]
-This summary uses mathematical ranking to find the most important sentences.
-
-### Key Points:
+## MODE 1: Exam-Ready Bullet Points
 ${top.join('\n')}
 
-### The Big Idea:
-${scored[0].text.substring(0, 100)}...
+## MODE 2: The "Cheat Sheet"
+- ${scores[0].text.substring(0, 60)}...
+- ${scores[1].text.substring(0, 60)}...
+
+## MODE 3: Detailed Revision
+${scores.slice(0, 3).map(s => s.text).join(' ')}
+
+## MODE 4: ELI10 (Simplified Summary)
+Basically, ${title} is about: ${scores[0].text.split(',')[0]}. It explains how things work in a simple way.
+
+## MODE 5: "The Exam is Tomorrow"
+ðŸ”¥ CRITICAL TAKEAWAY: ${scores[0].text}
 
 ---
-> [!TIP]
-> Use **Expert Mode** (Gemini) for the specialized 5-level summaries (Revision, Cheat Sheet, ELI10, etc.)
-`;
+Verified locally via mathematical ranking (Open Source).`;
 }
 
 async function generateSmartSummary(text, title) {
     try {
         const input = text.substring(0, 1000);
-        const output = await summarizer(input, { max_new_tokens: 80, do_sample: false });
-        const aiText = output[0].summary_text;
-        return `# ${title} (Smart Mode)
+        const output = await summarizer(input, { max_new_tokens: 150, do_sample: false });
+        const aiSummary = output[0].summary_text;
+
+        const sentences = text.split(/[.!?]+\s+/).filter(s => s.length > 20);
+        const scores = calculateSentenceScores(text, sentences);
+
+        return `# ${title}
 ---
-### Local AI Summary:
-${aiText.replace(/\. /g, '.\n- ')}
+## MODE 1: Exam-Ready Bullet Points
+${scores.slice(0, 6).map(s => "- " + s.text).join('\n')}
+
+## MODE 2: The "Cheat Sheet"
+- ${scores[0].text.split(' ').slice(0, 12).join(' ')}...
+- ${scores[1].text.split(' ').slice(0, 12).join(' ')}...
+
+## MODE 3: Detailed Revision
+${aiSummary.replace(/\. /g, '.\n')}
+
+## MODE 4: ELI10 (Simplified Summary)
+${aiSummary.split('. ')[0]}. (This is the most important part to remember for a 10-year old).
+
+## MODE 5: "The Exam is Tomorrow"
+ðŸ”¥ CRITICAL TAKEAWAY: ${scores[0].text}
 
 ---
-> [!TIP]
-> Use **Expert Mode** (Gemini) for the specialized 5-level summaries.
-`;
+Generated locally by AI (DistilBART-CNN). 100% Offline.`;
     } catch (err) {
         return generateFastSummary(text, title);
     }
-}
-
-async function generateExpertSummary(content, apiKey, title) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
-    const prompt = `Task: Create a 5-level study summary for this material.
-Material: ${content.substring(0, 8000)}
-Format exactly as follows:
-# ${title}
----
-## MODE 1: Exam-Ready Bullet Points
-(High level facts)
-## MODE 2: The "Cheat Sheet"
-(Ultra concise definitions)
-## MODE 3: Detailed Revision
-(Deeper explanation)
-## MODE 4: ELI10 (Explain Like I'm 10)
-(Simple, fun analogy)
-## MODE 5: "The Exam is Tomorrow"
-(The single most important takeaway)`;
-
-    const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-    });
-    const data = await response.json();
-    if (data.error) throw new Error(data.error.message);
-    return data.candidates[0].content.parts[0].text;
 }
 
 function updateStatus(label, percent, detail) {

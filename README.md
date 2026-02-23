@@ -1,16 +1,30 @@
-# myexamai 🚀
+# MyExamAI 💎📚 (Open Source Edition)
 
-An open-source, local-AI study tool that condenses large PDFs into simple, mobile-friendly "ELI10" (Explain Like I'm 10) summaries.
+Welcome to your 100% Open-Source, Private, and Local Study Tool. This tool allows you to turn heavy PDFs into simplified study guides without ever sending your data to a cloud API.
 
 ## ✨ Features
-- **Privacy First**: All processing happens in your browser. No data is sent to a server.
-- **Fast Mode**: Instant extraction of key points using mathematical scoring.
-- **Smart Mode**: Local AI summarization powered by Transformers.js.
-- **ZIP Bundling**: Download all your summaries as a ready-to-use bundle for your phone.
+- **100% Open Source & Offline**: No Gemini/OpenAI keys required.
+- **Local AI Brain**: Uses `Transformers.js` to run a summarization model directly in your browser.
+- **5-Level "Pro" Summaries**: Every section is broken down into:
+    1. **Exam Bullets**: High-level facts for memorization.
+    2. **The Cheat Sheet**: Ultra-condise keyword definitions.
+    3. **Detailed Revision**: A deep dive into the content.
+    4. **ELI10**: Simple, conversational explanations.
+    5. **Exam Tomorrow**: The #1 most critical takeaway.
+- **Automatic Chapter Detection**: Smartly splits your PDF into logical lessons and chapters.
+- **Mobile Optimized**: Add it to your phone's home screen for studying on the go.
 
-## 🛠️ How it Works
-This tool uses `pdf.js` for extraction, `Transformers.js` for local AI logic, and `JSZip` for bundling. It is a single-file application designed for maximum portability.
+## 🚀 How to Use
+1. **Open the App**: Simply open `index.html` (or use the link below).
+2. **Choose Mode**: 
+   - **⚡ Fast**: Best for huge files. Uses mathematical ranking (instant).
+   - **🧠 Smart**: Uses Local AI (~60MB download once). Best for deep understanding.
+3. **Upload PDF**: Drop your study material.
+4. **Download**: Get a ZIP bundle of all your simplified summaries.
 
-## 🚀 Live Demo
-Once deployed to GitHub Pages, you can access your personal version of the tool at:
-`https://<your-username>.github.io/myexamai/`
+## 🛠️ Developed for Learners
+This tool was built to prioritize **Privacy** and **Accessibility**. All processing happens on your device.
+
+---
+> [!NOTE]
+> This repository contains the source code for the tool. To use it immediately on mobile, transfer the `Mobile_Study_Condenser.html` file to your device and open it.
