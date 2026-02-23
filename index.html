@@ -1,0 +1,599 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Study Condenser Tool</title>
+    <style>
+:root {
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
+  --bg: #0f172a;
+  --card-bg: rgba(30, 41, 59, 0.7);
+  --text: #f8fafc;
+  --text-muted: #94a3b8;
+  --border: rgba(255, 255, 255, 0.1);
+  --success: #10b981;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background-image:
+    radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(16, 185, 129, 0.1) 0, transparent 50%);
+}
+
+.container {
+  width: 100%;
+  max-width: 500px;
+  background: var(--card-bg);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  padding: 40px;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  text-align: center;
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+  letter-spacing: -0.025em;
+}
+
+p.subtitle {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin-bottom: 32px;
+}
+
+.mode-selector {
+  margin-bottom: 32px;
+  text-align: left;
+}
+
+.tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  background: rgba(15, 23, 42, 0.4);
+  padding: 6px;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  padding: 10px;
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.tab-btn.active {
+  background: var(--primary);
+  color: white;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+}
+
+.tab-btn i {
+  font-size: 1rem;
+}
+
+label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+  letter-spacing: 0.05em;
+}
+
+.drop-zone {
+  width: 100%;
+  height: 200px;
+  border: 2px dashed var(--border);
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  margin-bottom: 24px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.drop-zone:hover,
+.drop-zone.dragover {
+  border-color: var(--primary);
+  background: rgba(99, 102, 241, 0.05);
+}
+
+.drop-zone i {
+  font-size: 3rem;
+  color: var(--primary);
+  margin-bottom: 12px;
+}
+
+.drop-zone span {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.drop-zone small {
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  border: none;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-primary:active {
+  transform: translateY(0);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.status-card {
+  margin-top: 24px;
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 16px;
+  padding: 20px;
+  text-align: left;
+}
+
+.progress-container {
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  margin: 12px 0;
+  overflow: hidden;
+}
+
+#progress-bar {
+  height: 100%;
+  width: 0%;
+  background: var(--primary);
+  transition: width 0.3s ease;
+}
+
+.status-text {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+}
+
+.success-area {
+  margin-top: 24px;
+  animation: slideUp 0.4s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 480px) {
+  .container {
+    padding: 24px;
+  }
+
+  h1 {
+    font-size: 1.5rem;
+  }
+}
+</style>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>StudyCondenser</h1>
+            <p class="subtitle">Extract, Simplify & Bundle in Seconds</p>
+        </header>
+
+        <div id="setup-view">
+            <div class="mode-selector">
+                <label>Summarization Mode</label>
+                <div class="tabs">
+                    <button class="tab-btn active" onclick="setMode('fast')">
+                        <i class="fa-solid fa-bolt"></i>
+                        Fast (Extractive)
+                    </button>
+                    <button class="tab-btn" onclick="setMode('smart')">
+                        <i class="fa-solid fa-brain"></i>
+                        Smart (Local AI)
+                    </button>
+                </div>
+                <p id="mode-desc" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 10px;">
+                    âš¡ Fast Mode finds the most important sentences instantly using math. No download required.
+                </p>
+            </div>
+
+            <div class="drop-zone" id="drop-zone">
+                <i class="fa-solid fa-file-pdf"></i>
+                <span>Drop your PDF here</span>
+                <small>Max file size: 50MB</small>
+                <input type="file" id="file-input" accept="application/pdf" class="hidden">
+            </div>
+
+            <button id="process-btn" class="btn btn-primary" disabled>
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+                Start Condensing
+            </button>
+        </div>
+
+        <div id="status-view" class="hidden">
+            <div class="status-card">
+                <div class="status-text">
+                    <span id="status-label">Extracting Text...</span>
+                    <span id="status-percent">0%</span>
+                </div>
+                <div class="progress-container">
+                    <div id="progress-bar"></div>
+                </div>
+                <p id="detailed-status" style="font-size: 0.8rem; color: var(--text-muted); text-align: center;">Opening
+                    PDF file...</p>
+            </div>
+        </div>
+
+        <div id="success-view" class="success-area hidden">
+            <div
+                style="background: rgba(16, 185, 129, 0.1); border: 1px solid var(--success); border-radius: 16px; padding: 20px; margin-bottom: 24px;">
+                <i class="fa-solid fa-circle-check"
+                    style="color: var(--success); font-size: 2.5rem; margin-bottom: 12px;"></i>
+                <h2 style="font-size: 1.25rem;">Processing Complete!</h2>
+                <p id="file-stats" style="color: var(--text-muted); font-size: 0.9rem;">24 Lessons generated
+                    successfully.</p>
+            </div>
+
+            <button id="download-btn" class="btn btn-primary" style="background: var(--success);">
+                <i class="fa-solid fa-download"></i>
+                Download .ZIP Bundle
+            </button>
+            <button onclick="location.reload()" class="btn"
+                style="background: transparent; color: var(--text-muted); margin-top: 12px;">Start New Project</button>
+        </div>
+    </div>
+
+    <!-- Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script type="module">
+        import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@xenova/transformers@2.17.1';
+        window.Transformers = { pipeline, env };
+    </script>
+
+    <script>
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    </script>
+    <script>
+// DOM Elements
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const processBtn = document.getElementById('process-btn');
+const setupView = document.getElementById('setup-view');
+const statusView = document.getElementById('status-view');
+const successView = document.getElementById('success-view');
+const progressBar = document.getElementById('progress-bar');
+const statusLabel = document.getElementById('status-label');
+const statusPercent = document.getElementById('status-percent');
+const detailedStatus = document.getElementById('detailed-status');
+const fileStats = document.getElementById('file-stats');
+const downloadBtn = document.getElementById('download-btn');
+const modeDesc = document.getElementById('mode-desc');
+
+let selectedFile = null;
+let zip = null;
+let currentMode = 'fast';
+let summarizer = null;
+
+// Event Listeners
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+});
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length) {
+        handleFileSelection(e.dataTransfer.files[0]);
+    }
+});
+
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length) {
+        handleFileSelection(e.target.files[0]);
+    }
+});
+
+function handleFileSelection(file) {
+    if (file.type !== 'application/pdf') {
+        alert('Please upload a PDF file.');
+        return;
+    }
+    selectedFile = file;
+    dropZone.querySelector('span').textContent = file.name;
+    validateInputs();
+}
+
+function validateInputs() {
+    processBtn.disabled = !selectedFile;
+}
+
+window.setMode = function (mode) {
+    currentMode = mode;
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+
+    if (mode === 'fast') {
+        modeDesc.innerHTML = "âš¡ Fast Mode finds the most important sentences instantly using math. No download required.";
+    } else {
+        modeDesc.innerHTML = "ðŸ§  Smart Mode downloads a small AI model (~60MB) to your browser for more creative summaries.";
+    }
+};
+
+processBtn.addEventListener('click', startProcessing);
+
+async function startProcessing() {
+    setupView.classList.add('hidden');
+    statusView.classList.remove('hidden');
+
+    try {
+        // 1. Initial Logic
+        if (currentMode === 'smart' && !summarizer) {
+            updateStatus('Loading AI Model...', 5, 'Downloading small model (~60MB) to browser cache...');
+            summarizer = await window.Transformers.pipeline('summarization', 'Xenova/distilbart-cnn-6-6');
+        }
+
+        // 2. Extract Text
+        updateStatus('Extracting Text...', 10, 'Reading PDF pages...');
+        const fullText = await extractTextFromPDF(selectedFile);
+
+        // 3. Identify Lessons
+        updateStatus('Analyzing Content...', 20, 'Detecting lessons and chapters...');
+        const lessons = splitIntoLessons(fullText);
+
+        if (lessons.length === 0) {
+            throw new Error('No clear lessons detected. Try a different PDF structure.');
+        }
+
+        updateStatus('Generating Summaries...', 25, `Found ${lessons.length} lessons. Starting ${currentMode === 'fast' ? 'Math' : 'AI'} processing...`);
+
+        // 4. Processing (Batch)
+        zip = new JSZip();
+        for (let i = 0; i < lessons.length; i++) {
+            const progress = 25 + Math.round((i / lessons.length) * 70);
+            updateStatus(`Summarizing Lesson ${i + 1}/${lessons.length}`, progress, `Processing ${lessons[i].title}...`);
+
+            let summary = "";
+            if (currentMode === 'fast') {
+                summary = generateFastSummary(lessons[i].content, lessons[i].title);
+            } else {
+                summary = await generateSmartSummary(lessons[i].content, lessons[i].title);
+            }
+
+            zip.file(`${lessons[i].fileName}.txt`, summary);
+        }
+
+        // 5. Bundling
+        updateStatus('Bundling Files...', 98, 'Creating your ZIP package...');
+        fileStats.textContent = `${lessons.length} Lessons generated and bundled successfully.`;
+
+        statusView.classList.add('hidden');
+        successView.classList.remove('hidden');
+
+    } catch (err) {
+        console.error(err);
+        alert('Error: ' + err.message);
+        setupView.classList.remove('hidden');
+        statusView.classList.add('hidden');
+    }
+}
+
+async function extractTextFromPDF(file) {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    let fullText = '';
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        fullText += textContent.items.map(s => s.str).join(' ') + '\n';
+
+        const pageProgress = Math.round((i / pdf.numPages) * 10);
+        updateStatus('Extracting Text...', 10 + pageProgress, `Reading page ${i} of ${pdf.numPages}...`);
+    }
+    return fullText;
+}
+
+function splitIntoLessons(text) {
+    const patterns = [
+        /Lesson\s*\d+/gi,
+        /Chapter\s*\d+/gi,
+        /^\s*\d+\.\s+[A-Z]/gm,
+        /Unit\s*\d+/gi
+    ];
+
+    let segments = [];
+    let matchedPattern = null;
+    for (const p of patterns) {
+        const matches = [...text.matchAll(p)];
+        if (matches.length > 2) {
+            matchedPattern = p;
+            break;
+        }
+    }
+
+    if (matchedPattern) {
+        const matches = [...text.matchAll(matchedPattern)];
+        matches.forEach((match, idx) => {
+            if (idx === 0 && match.index > 50) {
+                segments.push({
+                    title: "Opening Material",
+                    content: text.substring(0, match.index),
+                    fileName: "lesson_00_intro"
+                });
+            }
+
+            const start = match.index;
+            const end = matches[idx + 1] ? matches[idx + 1].index : text.length;
+            const title = match[0].trim();
+
+            segments.push({
+                title: title,
+                content: text.substring(start, end),
+                fileName: title.toLowerCase().replace(/\s+/g, '_')
+            });
+        });
+    } else {
+        const chunks = text.match(/[\s\S]{1,4000}/g) || [];
+        chunks.forEach((chunk, idx) => {
+            segments.push({
+                title: `Lesson ${idx + 1}`,
+                content: chunk,
+                fileName: `lesson_${idx + 1}`
+            });
+        });
+    }
+
+    return segments.map(s => ({
+        ...s,
+        content: s.content.trim()
+    }));
+}
+
+// --- SUMMARIZATION LOGIC ---
+
+function generateFastSummary(text, title) {
+    // Basic Extractive TextRank-like algorithm
+    const sentences = text.match(/[^\.!\?]+[\.!\?]+/g) || [text];
+    if (sentences.length <= 5) return "# " + title + "\n\n" + text;
+
+    // 1. Calculate word frequencies
+    const words = text.toLowerCase().match(/\w+/g) || [];
+    const freqs = {};
+    const stopWords = new Set(['the', 'and', 'is', 'a', 'in', 'it', 'to', 'of', 'of']);
+
+    words.forEach(w => {
+        if (!stopWords.has(w)) freqs[w] = (freqs[w] || 0) + 1;
+    });
+
+    // 2. Score sentences based on word frequency
+    const scoredSentences = sentences.map(s => {
+        let score = 0;
+        const sWords = s.toLowerCase().match(/\w+/g) || [];
+        sWords.forEach(w => score += freqs[w] || 0);
+        return { text: s.trim(), score: score / (sWords.length + 1) }; // Normalize by length
+    });
+
+    // 3. Pick top 5 sentences
+    const topSentences = scoredSentences
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 5)
+        .map(s => "- " + s.text);
+
+    return `# ${title} (Fast Mode Summary)\n\nELI10 EXPLANATION:\n${topSentences.join('\n')}\n\nSUMMARY:\nThis lesson covers the key concepts of ${title} by focusing on the most relevant information identified above.`;
+}
+
+async function generateSmartSummary(text, title) {
+    try {
+        const input = text.substring(0, 1024); // DistilBART limit
+        const output = await summarizer(input, {
+            max_new_tokens: 100,
+            min_new_tokens: 30,
+            do_sample: false
+        });
+
+        return `# ${title} (Smart Mode Summary)\n\nELI10 EXPLANATION:\n- ${output[0].summary_text.replace(/\. /g, '.\n- ')}\n\nSUMMARY:\nLocal AI has simplified this content into the core points listed above for easier memorization.`;
+    } catch (err) {
+        console.error("Smart summary failed, falling back to fast mode", err);
+        return generateFastSummary(text, title);
+    }
+}
+
+function updateStatus(label, percent, detail) {
+    statusLabel.textContent = label;
+    statusPercent.textContent = `${percent}%`;
+    progressBar.style.width = `${percent}%`;
+    detailedStatus.textContent = detail;
+}
+
+downloadBtn.addEventListener('click', async () => {
+    if (!zip) return;
+    const content = await zip.generateAsync({ type: 'blob' });
+    saveAs(content, "Study_Guide_Bundle_OFFLINE.zip");
+});
+
+</script>
+</body>
+
+</html>
