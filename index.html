@@ -262,17 +262,27 @@ label {
                 <label>Summarization Mode</label>
                 <div class="tabs">
                     <button class="tab-btn active" onclick="setMode('fast')">
-                        <i class="fa-solid fa-bolt"></i>
-                        Fast (Extractive)
+                        <i class="fa-solid fa-bolt"></i> Fast
                     </button>
                     <button class="tab-btn" onclick="setMode('smart')">
-                        <i class="fa-solid fa-brain"></i>
-                        Smart (Local AI)
+                        <i class="fa-solid fa-brain"></i> Smart
+                    </button>
+                    <button class="tab-btn" onclick="setMode('expert')">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Expert
                     </button>
                 </div>
                 <p id="mode-desc" style="font-size: 0.75rem; color: var(--text-muted); margin-top: 10px;">
                     âš¡ Fast Mode finds the most important sentences instantly using math. No download required.
                 </p>
+            </div>
+
+            <div id="api-key-container" class="hidden" style="margin-bottom: 24px; text-align: left;">
+                <label for="api-key" style="font-size: 0.75rem;">Gemini API Key (Required for Expert Mode)</label>
+                <input type="password" id="api-key" placeholder="Paste key here..."
+                    style="width: 100%; background: rgba(15, 23, 42, 0.6); border: 1px solid var(--border); border-radius: 12px; padding: 12px 16px; color: var(--text); font-size: 1rem;">
+                <p style="font-size: 0.65rem; color: var(--text-muted); margin-top: 4px;">Get one at <a
+                        href="https://aistudio.google.com/" target="_blank"
+                        style="color: var(--primary);">aistudio.google.com</a></p>
             </div>
 
             <div class="drop-zone" id="drop-zone">
@@ -348,6 +358,8 @@ const detailedStatus = document.getElementById('detailed-status');
 const fileStats = document.getElementById('file-stats');
 const downloadBtn = document.getElementById('download-btn');
 const modeDesc = document.getElementById('mode-desc');
+const apiKeyContainer = document.getElementById('api-key-container');
+const apiKeyInput = document.getElementById('api-key');
 
 let selectedFile = null;
 let zip = null;
@@ -375,6 +387,8 @@ fileInput.addEventListener('change', (e) => {
     }
 });
 
+apiKeyInput.addEventListener('input', validateInputs);
+
 function handleFileSelection(file) {
     if (file.type !== 'application/pdf') {
         alert('Please upload a PDF file.');
@@ -386,19 +400,30 @@ function handleFileSelection(file) {
 }
 
 function validateInputs() {
-    processBtn.disabled = !selectedFile;
+    if (currentMode === 'expert') {
+        processBtn.disabled = !(selectedFile && apiKeyInput.value.length > 20);
+    } else {
+        processBtn.disabled = !selectedFile;
+    }
 }
 
 window.setMode = function (mode) {
     currentMode = mode;
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    event.currentTarget.classList.add('active');
+    // Use the event target to find correct button
+    const target = event.currentTarget;
+    if (target) target.classList.add('active');
+
+    apiKeyContainer.classList.toggle('hidden', mode !== 'expert');
 
     if (mode === 'fast') {
-        modeDesc.innerHTML = "âš¡ Fast Mode finds the most important sentences instantly using math. No download required.";
+        modeDesc.innerHTML = "âš¡ Fast Mode finds the most important sentences instantly using math.";
+    } else if (mode === 'smart') {
+        modeDesc.innerHTML = "ðŸ§  Smart Mode downloads a small AI model (~60MB) for higher quality text.";
     } else {
-        modeDesc.innerHTML = "ðŸ§  Smart Mode downloads a small AI model (~60MB) to your browser for more creative summaries.";
+        modeDesc.innerHTML = "âœ¨ Expert Mode uses Gemini AI to create the deep 5-Method summary you love.";
     }
+    validateInputs();
 };
 
 processBtn.addEventListener('click', startProcessing);
@@ -406,11 +431,12 @@ processBtn.addEventListener('click', startProcessing);
 async function startProcessing() {
     setupView.classList.add('hidden');
     statusView.classList.remove('hidden');
+    const apiKey = apiKeyInput.value.trim();
 
     try {
         // 1. Initial Logic
         if (currentMode === 'smart' && !summarizer) {
-            updateStatus('Loading AI Model...', 5, 'Downloading small model (~60MB) to browser cache...');
+            updateStatus('Loading AI Model...', 5, 'Downloading model (~60MB) to browser cache...');
             summarizer = await window.Transformers.pipeline('summarization', 'Xenova/distilbart-cnn-6-6');
         }
 
@@ -419,26 +445,28 @@ async function startProcessing() {
         const fullText = await extractTextFromPDF(selectedFile);
 
         // 3. Identify Lessons
-        updateStatus('Analyzing Content...', 20, 'Detecting lessons and chapters...');
+        updateStatus('Analyzing Content...', 20, 'Detecting chapters and headers...');
         const lessons = splitIntoLessons(fullText);
 
         if (lessons.length === 0) {
-            throw new Error('No clear lessons detected. Try a different PDF structure.');
+            throw new Error('No clear lessons detected. Try a different PDF.');
         }
 
-        updateStatus('Generating Summaries...', 25, `Found ${lessons.length} lessons. Starting ${currentMode === 'fast' ? 'Math' : 'AI'} processing...`);
+        updateStatus('Generating Summaries...', 25, `Processing ${lessons.length} sections in ${currentMode} mode...`);
 
         // 4. Processing (Batch)
         zip = new JSZip();
         for (let i = 0; i < lessons.length; i++) {
             const progress = 25 + Math.round((i / lessons.length) * 70);
-            updateStatus(`Summarizing Lesson ${i + 1}/${lessons.length}`, progress, `Processing ${lessons[i].title}...`);
+            updateStatus(`Condensing Section ${i + 1}/${lessons.length}`, progress, `Processing: ${lessons[i].title}...`);
 
             let summary = "";
-            if (currentMode === 'fast') {
-                summary = generateFastSummary(lessons[i].content, lessons[i].title);
-            } else {
+            if (currentMode === 'expert') {
+                summary = await generateExpertSummary(lessons[i].content, apiKey, lessons[i].title);
+            } else if (currentMode === 'smart') {
                 summary = await generateSmartSummary(lessons[i].content, lessons[i].title);
+            } else {
+                summary = generateFastSummary(lessons[i].content, lessons[i].title);
             }
 
             zip.file(`${lessons[i].fileName}.txt`, summary);
@@ -446,7 +474,7 @@ async function startProcessing() {
 
         // 5. Bundling
         updateStatus('Bundling Files...', 98, 'Creating your ZIP package...');
-        fileStats.textContent = `${lessons.length} Lessons generated and bundled successfully.`;
+        fileStats.textContent = `${lessons.length} Lessons generated successfully.`;
 
         statusView.classList.add('hidden');
         successView.classList.remove('hidden');
@@ -476,18 +504,18 @@ async function extractTextFromPDF(file) {
 }
 
 function splitIntoLessons(text) {
+    // Regex looking for common header patterns
     const patterns = [
-        /Lesson\s*\d+/gi,
-        /Chapter\s*\d+/gi,
-        /^\s*\d+\.\s+[A-Z]/gm,
-        /Unit\s*\d+/gi
+        /(?:Lesson|Chapter|Unit)\s*\d+[:\s\-\.]+[^\n]+/gi,
+        /^\s*[0-9]+\.\s+[A-Z][a-z]+/gm,  // Match "1. Topic"
+        /^[A-Z\s]{5,40}$/gm               // Match ALL CAPS HEADERS
     ];
 
     let segments = [];
     let matchedPattern = null;
     for (const p of patterns) {
         const matches = [...text.matchAll(p)];
-        if (matches.length > 2) {
+        if (matches.length > 1) {
             matchedPattern = p;
             break;
         }
@@ -496,88 +524,105 @@ function splitIntoLessons(text) {
     if (matchedPattern) {
         const matches = [...text.matchAll(matchedPattern)];
         matches.forEach((match, idx) => {
-            if (idx === 0 && match.index > 50) {
-                segments.push({
-                    title: "Opening Material",
-                    content: text.substring(0, match.index),
-                    fileName: "lesson_00_intro"
-                });
+            if (idx === 0 && match.index > 80) {
+                segments.push({ title: "Intro Material", content: text.substring(0, match.index), fileName: "00_intro" });
             }
-
             const start = match.index;
             const end = matches[idx + 1] ? matches[idx + 1].index : text.length;
-            const title = match[0].trim();
+            const title = match[0].trim().substring(0, 50).replace(/\r?\n|\r/g, " ");
+            const safeTitle = (idx + 1).toString().padStart(2, '0') + "_" + title.toLowerCase().replace(/[^a-z0-9]/g, '_').substring(0, 15);
 
-            segments.push({
-                title: title,
-                content: text.substring(start, end),
-                fileName: title.toLowerCase().replace(/\s+/g, '_')
-            });
+            segments.push({ title: title, content: text.substring(start, end), fileName: safeTitle });
         });
     } else {
-        const chunks = text.match(/[\s\S]{1,4000}/g) || [];
+        const chunks = text.match(/[\s\S]{1,5000}/g) || [];
         chunks.forEach((chunk, idx) => {
-            segments.push({
-                title: `Lesson ${idx + 1}`,
-                content: chunk,
-                fileName: `lesson_${idx + 1}`
-            });
+            segments.push({ title: `Part ${idx + 1}`, content: chunk, fileName: `part_${(idx + 1).toString().padStart(2, '0')}` });
         });
     }
-
-    return segments.map(s => ({
-        ...s,
-        content: s.content.trim()
-    }));
+    return segments.map(s => ({ ...s, content: s.content.trim() }));
 }
 
-// --- SUMMARIZATION LOGIC ---
-
 function generateFastSummary(text, title) {
-    // Basic Extractive TextRank-like algorithm
-    const sentences = text.match(/[^\.!\?]+[\.!\?]+/g) || [text];
+    const sentences = text.split(/[.!?]+\s+/).filter(s => s.length > 20);
     if (sentences.length <= 5) return "# " + title + "\n\n" + text;
 
-    // 1. Calculate word frequencies
     const words = text.toLowerCase().match(/\w+/g) || [];
     const freqs = {};
-    const stopWords = new Set(['the', 'and', 'is', 'a', 'in', 'it', 'to', 'of', 'of']);
+    const stopWords = new Set(['the', 'and', 'is', 'a', 'in', 'it', 'to', 'of', 'that', 'this', 'with']);
+    words.forEach(w => { if (!stopWords.has(w)) freqs[w] = (freqs[w] || 0) + 1; });
 
-    words.forEach(w => {
-        if (!stopWords.has(w)) freqs[w] = (freqs[w] || 0) + 1;
-    });
-
-    // 2. Score sentences based on word frequency
-    const scoredSentences = sentences.map(s => {
-        let score = 0;
+    const scored = sentences.map(s => {
         const sWords = s.toLowerCase().match(/\w+/g) || [];
-        sWords.forEach(w => score += freqs[w] || 0);
-        return { text: s.trim(), score: score / (sWords.length + 1) }; // Normalize by length
-    });
+        let score = 0;
+        sWords.forEach(w => score += (freqs[w] || 0));
+        return { text: s.trim(), score: score / (sWords.length + 1) };
+    }).sort((a, b) => b.score - a.score);
 
-    // 3. Pick top 5 sentences
-    const topSentences = scoredSentences
-        .sort((a, b) => b.score - a.score)
-        .slice(0, 5)
-        .map(s => "- " + s.text);
+    const top = scored.slice(0, 6).map(s => "- " + s.text);
 
-    return `# ${title} (Fast Mode Summary)\n\nELI10 EXPLANATION:\n${topSentences.join('\n')}\n\nSUMMARY:\nThis lesson covers the key concepts of ${title} by focusing on the most relevant information identified above.`;
+    return `# ${title}
+---
+## [FAST MODE SUMMARY]
+This summary uses mathematical ranking to find the most important sentences.
+
+### Key Points:
+${top.join('\n')}
+
+### The Big Idea:
+${scored[0].text.substring(0, 100)}...
+
+---
+> [!TIP]
+> Use **Expert Mode** (Gemini) for the specialized 5-level summaries (Revision, Cheat Sheet, ELI10, etc.)
+`;
 }
 
 async function generateSmartSummary(text, title) {
     try {
-        const input = text.substring(0, 1024); // DistilBART limit
-        const output = await summarizer(input, {
-            max_new_tokens: 100,
-            min_new_tokens: 30,
-            do_sample: false
-        });
+        const input = text.substring(0, 1000);
+        const output = await summarizer(input, { max_new_tokens: 80, do_sample: false });
+        const aiText = output[0].summary_text;
+        return `# ${title} (Smart Mode)
+---
+### Local AI Summary:
+${aiText.replace(/\. /g, '.\n- ')}
 
-        return `# ${title} (Smart Mode Summary)\n\nELI10 EXPLANATION:\n- ${output[0].summary_text.replace(/\. /g, '.\n- ')}\n\nSUMMARY:\nLocal AI has simplified this content into the core points listed above for easier memorization.`;
+---
+> [!TIP]
+> Use **Expert Mode** (Gemini) for the specialized 5-level summaries.
+`;
     } catch (err) {
-        console.error("Smart summary failed, falling back to fast mode", err);
         return generateFastSummary(text, title);
     }
+}
+
+async function generateExpertSummary(content, apiKey, title) {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+    const prompt = `Task: Create a 5-level study summary for this material.
+Material: ${content.substring(0, 8000)}
+Format exactly as follows:
+# ${title}
+---
+## MODE 1: Exam-Ready Bullet Points
+(High level facts)
+## MODE 2: The "Cheat Sheet"
+(Ultra concise definitions)
+## MODE 3: Detailed Revision
+(Deeper explanation)
+## MODE 4: ELI10 (Explain Like I'm 10)
+(Simple, fun analogy)
+## MODE 5: "The Exam is Tomorrow"
+(The single most important takeaway)`;
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+    });
+    const data = await response.json();
+    if (data.error) throw new Error(data.error.message);
+    return data.candidates[0].content.parts[0].text;
 }
 
 function updateStatus(label, percent, detail) {
@@ -590,7 +635,7 @@ function updateStatus(label, percent, detail) {
 downloadBtn.addEventListener('click', async () => {
     if (!zip) return;
     const content = await zip.generateAsync({ type: 'blob' });
-    saveAs(content, "Study_Guide_Bundle_OFFLINE.zip");
+    saveAs(content, "MyExamAI_Package.zip");
 });
 
 </script>
